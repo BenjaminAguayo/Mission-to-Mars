@@ -2,10 +2,13 @@
 from splinter import Browser
 from bs4 import BeautifulSoup as soup
 import pandas as pd
+from pprint import pprint
+from time import sleep
 import datetime as dt
 from webdriver_manager.chrome import ChromeDriverManager
 
 def scrape_all():
+
     # Initiate headless driver for deployment
     executable_path = {'executable_path': ChromeDriverManager().install()}
     browser = Browser('chrome', **executable_path, headless=True)
@@ -18,7 +21,8 @@ def scrape_all():
         "news_paragraph": news_paragraph,
         "featured_image": featured_image(browser),
         "facts": mars_facts(),
-        "last_modified": dt.datetime.now()
+        "last_modified": dt.datetime.now(),
+        "hemispheres": mars_hemis(browser)
     }
 
     # Stop webdriver and return data
@@ -96,7 +100,51 @@ def mars_facts():
     # Convert dataframe into HTML format, add bootstrap
     return df.to_html(classes="table table-striped")
 
+    #Create a function that scrapes hemisphere data
+def mars_hemis(browser):
+    url = 'https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars'
+    browser.visit(url)
+    
+    html = browser.html
+    hemi_soup = soup(html, 'html.parser')
+
+    hemi_strings = []
+    links = hemi_soup.find_all('h3')
+    
+    for hemi in links:
+        hemi_strings.append(hemi.text)
+
+    # Initialize hemisphere_image_urls list
+    hemisphere_image_urls = []
+
+    # Loop through the hemisphere links to obtain the images
+    for hemi in hemi_strings:
+        # Initialize a dictionary for the hemisphere
+        hemi_dict = {}
+        
+        # Click on the link with the corresponding text
+        browser.click_link_by_partial_text(hemi)
+        
+        # Scrape the image url string and store into the dictionary
+        hemi_dict["img_url"] = browser.find_by_text('Sample')['href']
+        
+        # The hemisphere title is already in hemi_strings, so store it into the dictionary
+        hemi_dict["title"] = hemi
+        
+        # Add the dictionary to hemisphere_image_urls
+        hemisphere_image_urls.append(hemi_dict)
+    
+        # Check for output
+        pprint(hemisphere_image_urls)
+    
+        #d) use browser.back() to navigate back to the beginning to get the next hemisphere image.
+        browser.back()
+    
+    return hemisphere_image_urls
+
+
 if __name__ == "__main__":
 
     # If running as script, print scraped data
     print(scrape_all())
+
